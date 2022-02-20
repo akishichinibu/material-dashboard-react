@@ -1,0 +1,90 @@
+diff --git a/node_modules/qbittorrent-api-v2/src/qbt.js b/node_modules/qbittorrent-api-v2/src/qbt.js
+index 2a89f86..edf9e3d 100644
+--- a/node_modules/qbittorrent-api-v2/src/qbt.js
++++ b/node_modules/qbittorrent-api-v2/src/qbt.js
+@@ -9,11 +9,11 @@ const ENDPOINT = '/api/v2'
+  * @param {string} password - Password used to access the WebUI
+  */
+ exports.connect = async (host, username, password) => {
+-	const hostname = new URL(host)
++	// const hostname = new URL(host)
+ 	const options = {
+-		hostname: hostname.hostname,
+-		protocol: hostname.protocol,
+-		port: parseInt(hostname.port) || (hostname.protocol == 'https:' ? 443 : 80)
++		// hostname: host,
++		// protocol: "http",
++		// port: parseInt(hostname.port) || (hostname.protocol == 'https:' ? 443 : 80)
+ 	}
+ 
+ 	try {
+@@ -1281,47 +1281,30 @@ async function updatePlugins(options, cookie) {
+ 
+ // Utils functions
+ 
+-function performRequest(opt, cookie, path, parameters) {
+-	const data = plainify(parameters)
+ 
+-	const options = {
+-		hostname: opt.hostname,
+-		protocol: opt.protocol,
+-		port: opt.port,
+-		path: ENDPOINT + path,
+-		method: 'POST',
+-		headers: {
+-			'Referer': opt.protocol + '//' + opt.hostname + ((opt.port != 80 || opt.port != 443) ? ':' + opt.port : ''),
+-			'Origin': opt.protocol + '//' + opt.hostname + ((opt.port != 80 || opt.port != 443) ? ':' + opt.port : ''),
+-			'Content-Type': 'application/x-www-form-urlencoded',
+-			'Content-Length': data.length,
+-			'Cookie': cookie
+-		}
+-	}
++async function postRequest(version, endpoint, body) {
++  const headers = new Headers();
++  headers.append("Content-Type", "application/x-www-form-urlencoded");
++
++  const req = new Request(`/api/${version}${endpoint}`, {
++    method: "POST",
++    mode: "same-origin",
++    headers: headers,
++    credentials: "same-origin",
++    body: body === null ? undefined : body,
++  });
++
++  try {
++		return await fetch(req);
++  } catch (e) {
++    throw new RequestError(e);
++  }
++}
++
+ 
+-	return new Promise((resolve, reject) => {
+-		const req = protocol[options.protocol].request(options, res => {
+-			let data = []
+-
+-			res.on('data', chunk => data.push(chunk))
+-				.on('end', () => {
+-					if (res.statusCode == 200) {
+-						var c = null
+-						if (res.headers['set-cookie'] != undefined) {
+-							c = res.headers['set-cookie'][0]
+-						}
+-						resolve({ res: Buffer.concat(data).toString(), cookie: c })
+-					} else {
+-						reject(new Error(`HTTP request error: ${res.statusCode}`))
+-					}
+-				})
+-		})
+-
+-		req.on('error', err => reject(err))
+-
+-		req.write(data)
+-		req.end()
+-	})
++async function performRequest(_, cookie, path, parameters) {
++	const res = await postRequest("v2", path, parameters ? plainify(parameters) : null);
++	return { res: await res.text() }
+ }
+ 
+ /**
